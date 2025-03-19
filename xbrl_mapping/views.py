@@ -1,17 +1,28 @@
-# views.py (optimized)
 from rest_framework import viewsets, status, generics, filters
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.db import transaction
 import json
 from django_filters.rest_framework import DjangoFilterBackend
+import asyncio
+import logfire
+
+logfire.configure(console=False, inspect_arguments=False)
+logfire.instrument_openai()
+
+# Import the mapping agent and dependencies
+from .services.agent import financial_statement_agent
+from .services.dependencies import financial_deps
+
+from .utils import success_response, error_response
 
 from .models import (
     PartialXBRL, FilingInformation, StatementOfFinancialPosition,
     IncomeStatement, Notes, DirectorsStatement, AuditReport, CurrentAssets,
     NonCurrentAssets, CurrentLiabilities, NonCurrentLiabilities, Equity,
-    TradeAndOtherReceivables, TradeAndOtherPayables
+    TradeAndOtherReceivables, TradeAndOtherPayables, Revenue
 )
 from .serializers import (
     PartialXBRLSerializer, FilingInformationSerializer,
@@ -968,3 +979,90 @@ def bulk_operations(request):
         "message": "Invalid operation",
         "error": "The operation must be one of: import, export, delete"
     }, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+def map_financial_data(request):
+    """
+    Map financial statement data to standard format and store in database
+    """
+    try:
+        logfire.info("Starting financial data mapping process")
+        
+        # Extract data from request
+        data = request.data.get('data', {})
+        
+        # Convert to JSON string for processing
+        data_json = json.dumps(data, indent=4)
+        logfire.debug("Input data prepared", data_size=len(data_json))
+        
+        # Use asyncio to run the async function in a sync view
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            # Run the financial statement agent
+            logfire.info("Executing financial statement agent")
+            result_mapping = loop.run_until_complete(
+                financial_statement_agent.run(
+                    f'Please map this financial statement data: {data_json}',
+                    deps=financial_deps
+                )
+            )
+            logfire.info("Financial statement agent completed successfully")
+        except Exception as e:
+            logfire.exception("Error during financial statement agent execution", error=str(e))
+            raise
+        finally:
+            loop.close()
+        
+        # Convert result to dictionary
+        logfire.debug("Processing agent results")
+        if hasattr(result_mapping.data, 'model_dump'):  # Pydantic v2
+            mapped_data_dict = result_mapping.data.model_dump()
+        elif hasattr(result_mapping.data, 'dict'):      # Pydantic v1
+            mapped_data_dict = result_mapping.data.dict()
+        else:
+            # Fallback to manual conversion
+            mapped_data_dict = {k: v for k, v in result_mapping.data.__dict__.items() 
+                              if not k.startswith('_')}
+        
+        logfire.info("Financial data mapping completed successfully")
+        
+        # Store mapped data in database
+        try:
+            with transaction.atomic():
+                filing_id = save_to_database(mapped_data_dict)
+                logfire.info(f"Successfully saved data to database with ID: {filing_id}")
+                
+                return success_response(
+                    message="Financial data mapped and stored successfully",
+                    data={
+                        "mapped_data": mapped_data_dict,
+                        "filing_id": str(filing_id)
+                    }
+                )
+                
+        except Exception as db_error:
+            logfire.exception("Error storing mapped data in database", error=str(db_error))
+            return error_response(
+                message="Financial data was mapped but could not be stored in the database",
+                error=str(db_error),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+    except Exception as e:
+        # Enhanced error logging with more details
+        error_type = type(e).__name__
+        error_details = str(e)
+        
+        logfire.exception(
+            "Error during financial data mapping", 
+            error=error_details,
+            error_type=error_type
+        )
+        
+        # Return error response
+        return error_response(
+            message="Failed to map financial data",
+            error=error_details,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
