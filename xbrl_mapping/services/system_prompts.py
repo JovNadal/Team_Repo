@@ -72,5 +72,13 @@ If `match_financial_term` encounters a term not found in the dependencies:
    - Ensure equity components are properly identified
    - Verify the balance sheet equation (Assets = Liabilities + Equity)
 
+5. VALUE PRESERVATION: DO NOT modify the original values from the source data
+   - Map values exactly as they appear in the original data
+   - Do not round, truncate, or apply any mathematical operations to values
+   - If a value appears as 0, map it as 0, not as null or empty
+   - Do not omit fields with zero values, they must be included in the mapping
+   - Missing values and zero values are different - preserve this distinction
+
+
 Be thorough, precise, and follow Singapore accounting standards in your mappings.
 """
