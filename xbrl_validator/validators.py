@@ -38,11 +38,35 @@ class BaseXBRLValidator:
     
     def _validate_required_sections(self) -> None:
         """Validate that all required sections are present"""
-        required_sections = {'filing_information'}
+        # ACRA requires these sections for all filings
+        required_sections = {
+            'filing_information',
+            'statement_of_financial_position',
+            'income_statement'
+        }
         
-        missing_sections = required_sections - set(self.data.keys())
+        # Map for alternative section names
+        section_mapping = {
+            'filing_information': ['filing_information', 'FilingInformation'],
+            'statement_of_financial_position': ['statement_of_financial_position', 'StatementOfFinancialPosition'],
+            'income_statement': ['income_statement', 'IncomeStatement']
+        }
+        
+        # Check for missing sections
+        missing_sections = []
+        
+        for required_section in required_sections:
+            section_found = False
+            for alternative_name in section_mapping.get(required_section, [required_section]):
+                if alternative_name in self.data:
+                    section_found = True
+                    break
+            
+            if not section_found:
+                missing_sections.append(required_section)
+        
         if missing_sections:
-            self.errors['structure'] = [f"Missing required section(s): {', '.join(missing_sections)}"]
+            self._add_error('structure', f"Missing required section(s): {', '.join(missing_sections)}")
 
 
 class ACRAXBRLValidator:
@@ -119,13 +143,42 @@ class ACRAXBRLValidator:
             'income_statement'
         }
         
-        missing_sections = required_sections - set(self.data.keys())
+        # Map for alternative section names
+        section_mapping = {
+            'filing_information': ['filing_information', 'FilingInformation'],
+            'statement_of_financial_position': ['statement_of_financial_position', 'StatementOfFinancialPosition'],
+            'income_statement': ['income_statement', 'IncomeStatement']
+        }
+        
+        # Check for missing sections
+        missing_sections = []
+        
+        for required_section in required_sections:
+            section_found = False
+            for alternative_name in section_mapping.get(required_section, [required_section]):
+                if alternative_name in self.data:
+                    section_found = True
+                    break
+            
+            if not section_found:
+                missing_sections.append(required_section)
+        
         if missing_sections:
             self._add_error('structure', f"Missing required section(s): {', '.join(missing_sections)}")
     
     def _validate_filing_information(self) -> None:
         """Validate filing information according to ACRA rules"""
         filing_info = self.data.get('filing_information', {})
+        
+        # Map incoming field names to expected field names
+        field_mapping = {
+            'company_name': ['company_name', 'name_of_company', 'NameOfCompany'],
+            'unique_entity_number': ['unique_entity_number', 'UniqueEntityNumber'],
+            'current_period_start': ['current_period_start', 'current_period_start_date', 'CurrentPeriodStartDate'],
+            'current_period_end': ['current_period_end', 'current_period_end_date', 'CurrentPeriodEndDate'],
+            'xbrl_filing_type': ['xbrl_filing_type', 'type_of_xbrl_filing', 'TypeOfXBRLFiling'],
+            'financial_statement_type': ['financial_statement_type', 'nature_of_financial_statements_company_level_or_consolidated', 'NatureOfFinancialStatementsCompanyLevelOrConsolidated']
+        }
         
         # Required fields with validation functions
         required_validations = {
@@ -138,13 +191,23 @@ class ACRAXBRLValidator:
         }
         
         # Check each required field
-        for field, validator in required_validations.items():
-            if field not in filing_info:
-                self._add_error('filing_information', f"Missing required field: {field}")
+        for expected_field, validator in required_validations.items():
+            # Try all possible field names
+            field_value = None
+            field_found = False
+            
+            for field_name in field_mapping.get(expected_field, [expected_field]):
+                if field_name in filing_info:
+                    field_value = filing_info.get(field_name)
+                    field_found = True
+                    break
+            
+            if not field_found:
+                self._add_error('filing_information', f"Missing required field: {expected_field}")
             else:
-                result = validator(filing_info.get(field))
+                result = validator(field_value)
                 if result:
-                    self._add_error('filing_information', f"{field}: {result}")
+                    self._add_error('filing_information', f"{expected_field}: {result}")
     
     def _validate_financial_position(self) -> None:
         """Validate statement of financial position according to ACRA rules"""
@@ -375,16 +438,26 @@ class ACRAXBRLValidator:
         
     def _validate_filing_type(self, filing_type: str) -> Optional[str]:
         """Validate XBRL filing type"""
+        if not filing_type:
+            return "Filing type is required"
+            
         valid_types = {'Full', 'Partial'}
-        if filing_type not in valid_types:
+        normalized_type = filing_type.strip().title()
+        
+        if normalized_type not in valid_types:
             return f"Invalid filing type (should be one of: {', '.join(valid_types)})"
             
         return None
         
     def _validate_statement_type(self, stmt_type: str) -> Optional[str]:
         """Validate financial statement type"""
+        if not stmt_type:
+            return "Statement type is required"
+            
         valid_types = {'Company', 'Consolidated'}
-        if stmt_type not in valid_types:
+        normalized_type = stmt_type.strip().title()
+        
+        if normalized_type not in valid_types:
             return f"Invalid statement type (should be one of: {', '.join(valid_types)})"
             
         return None
