@@ -82,6 +82,7 @@ class RevenueSerializer(serializers.ModelSerializer):
 class NotesSerializer(serializers.ModelSerializer):
     trade_and_other_receivables = TradeAndOtherReceivablesSerializer()
     trade_and_other_payables = TradeAndOtherPayablesSerializer()
+    revenue = RevenueSerializer()
 
     class Meta:
         model = Notes
@@ -118,6 +119,7 @@ class PartialXBRLSerializer(serializers.ModelSerializer):
         notes_data = validated_data.pop('notes')
         trade_receivables_data = notes_data.pop('trade_and_other_receivables')
         trade_payables_data = notes_data.pop('trade_and_other_payables')
+        revenue_data = notes_data.pop('revenue')
 
         # Create filing information first
         filing_info = FilingInformation.objects.create(**filing_info_data)
@@ -150,12 +152,14 @@ class PartialXBRLSerializer(serializers.ModelSerializer):
         # Create notes components
         trade_receivables = TradeAndOtherReceivables.objects.create(filing=filing_info, **trade_receivables_data)
         trade_payables = TradeAndOtherPayables.objects.create(filing=filing_info, **trade_payables_data)
+        revenue = Revenue.objects.create(filing=filing_info, **revenue_data)
         
         # Create notes
         notes = Notes.objects.create(
             filing=filing_info,
             trade_and_other_receivables=trade_receivables,
             trade_and_other_payables=trade_payables,
+            revenue=revenue,
             **notes_data
         )
         

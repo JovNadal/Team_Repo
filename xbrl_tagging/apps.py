@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
 
-class XbrlValidatorConfig(AppConfig):
+class XbrlTaggingConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
-    name = "xbrl_validator"
+    name = "xbrl_tagging"

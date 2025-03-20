@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 import json
 import logging
-from .services.validator_service import XBRLValidatorService
+from .validator_service import XBRLValidatorService
 from .utils import error_response
 
 logger = logging.getLogger(__name__)

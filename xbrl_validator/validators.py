@@ -232,8 +232,8 @@ class ACRAXBRLValidator:
         # Check if totals match (with small tolerance for rounding)
         if abs(calculated_total_assets - reported_total_assets) > Decimal('0.1'):
             self._add_error('statement_of_financial_position', 
-                           f'Total assets ({reported_total_assets}) does not equal the sum of current assets ' 
-                           f'({total_current_assets}) and non-current assets ({total_noncurrent_assets})')
+                        f'Total assets ({reported_total_assets}) does not equal the sum of current assets ' 
+                        f'({total_current_assets}) and non-current assets ({total_noncurrent_assets})')
         
         # Check if total liabilities equals sum of current and non-current liabilities
         current_liabilities = financial_position.get('current_liabilities', {})
@@ -247,8 +247,8 @@ class ACRAXBRLValidator:
         
         if abs(calculated_total_liabilities - reported_total_liabilities) > Decimal('0.1'):
             self._add_error('statement_of_financial_position', 
-                           f'Total liabilities ({reported_total_liabilities}) does not equal the sum of current liabilities ' 
-                           f'({total_current_liabilities}) and non-current liabilities ({total_noncurrent_liabilities})')
+                        f'Total liabilities ({reported_total_liabilities}) does not equal the sum of current liabilities ' 
+                        f'({total_current_liabilities}) and non-current liabilities ({total_noncurrent_liabilities})')
     
     def _validate_income_statement(self) -> None:
         """Validate income statement according to ACRA rules"""
@@ -275,7 +275,7 @@ class ACRAXBRLValidator:
                 
             if abs(calculated_profit - reported_profit) > Decimal('0.1'):
                 self._add_error('income_statement', 
-                               f'Profit/Loss ({reported_profit}) does not match calculation from revenue and expenses')
+                            f'Profit/Loss ({reported_profit}) does not match calculation from revenue and expenses')
 
     def _validate_cash_flows(self) -> None:
         """Validate statement of cash flows according to ACRA rules"""
@@ -290,7 +290,7 @@ class ACRAXBRLValidator:
         
         if abs(calculated_closing_cash - closing_cash) > Decimal('0.1'):
             self._add_error('statement_of_cash_flows', 
-                           f'Closing cash ({closing_cash}) does not equal opening cash ({opening_cash}) plus net change ({net_increase})')
+                        f'Closing cash ({closing_cash}) does not equal opening cash ({opening_cash}) plus net change ({net_increase})')
         
         # Check if net cash flow equals sum of operating, investing and financing activities
         operating_cash = Decimal(str(cash_flows.get('net_cash_flows_from_used_in_operating_activities', 0)))
@@ -305,8 +305,8 @@ class ACRAXBRLValidator:
             exchange_effect = Decimal(str(cash_flows.get('effect_of_exchange_rate_changes_on_cash_and_cash_equivalents', 0)))
             if abs((calculated_net_cash + exchange_effect) - net_increase) > Decimal('0.1'):
                 self._add_error('statement_of_cash_flows', 
-                              f'Net increase in cash ({net_increase}) does not equal sum of operating ({operating_cash}), '
-                              f'investing ({investing_cash}), and financing ({financing_cash}) activities')
+                            f'Net increase in cash ({net_increase}) does not equal sum of operating ({operating_cash}), '
+                            f'investing ({investing_cash}), and financing ({financing_cash}) activities')
     
     def _validate_changes_in_equity(self) -> None:
         """Validate statement of changes in equity according to ACRA rules"""
@@ -321,8 +321,8 @@ class ACRAXBRLValidator:
         
         if abs(calculated_closing_equity - closing_equity) > Decimal('0.1'):
             self._add_error('statement_of_changes_in_equity', 
-                           f'Closing equity ({closing_equity}) does not equal opening equity ({opening_equity}) '
-                           f'plus total changes ({total_changes})')
+                        f'Closing equity ({closing_equity}) does not equal opening equity ({opening_equity}) '
+                        f'plus total changes ({total_changes})')
         
         # Check consistency with profit/loss in income statement
         if 'profit_loss_attributable_to_owners' in changes_in_equity and 'income_statement' in self.data:
@@ -333,8 +333,8 @@ class ACRAXBRLValidator:
             if equity_profit != 0 and income_profit != 0:
                 if abs(equity_profit - income_profit) > Decimal('0.1'):
                     self._add_error('statement_of_changes_in_equity', 
-                                  f'Profit/loss in statement of changes in equity ({equity_profit}) does not match '
-                                  f'profit/loss in income statement ({income_profit})')
+                                f'Profit/loss in statement of changes in equity ({equity_profit}) does not match '
+                                f'profit/loss in income statement ({income_profit})')
     
     def _validate_notes(self) -> None:
         """Validate notes section according to ACRA rules"""
@@ -351,8 +351,8 @@ class ACRAXBRLValidator:
             
             if abs(notes_total - statement_total) > Decimal('0.1'):
                 self._add_error('notes', 
-                               f'Trade and other receivables in notes ({notes_total}) does not match ' 
-                               f'the value in statement of financial position ({statement_total})')
+                            f'Trade and other receivables in notes ({notes_total}) does not match ' 
+                            f'the value in statement of financial position ({statement_total})')
     
     def _validate_cross_statement_consistency(self) -> None:
         """Validate consistency across different sections"""
@@ -368,8 +368,8 @@ class ACRAXBRLValidator:
             # Assets = Liabilities + Equity
             if abs((total_liabilities + total_equity) - total_assets) > Decimal('0.1'):
                 self._add_error('cross_section', 
-                               f'Assets ({total_assets}) must equal Liabilities ({total_liabilities}) plus Equity ({total_equity})')
-                               
+                            f'Assets ({total_assets}) must equal Liabilities ({total_liabilities}) plus Equity ({total_equity})')
+                            
         # Check ending equity in statement of financial position matches ending equity in statement of changes in equity
         if 'statement_of_financial_position' in self.data and 'statement_of_changes_in_equity' in self.data:
             statement_pos = self.data.get('statement_of_financial_position', {})
@@ -380,8 +380,8 @@ class ACRAXBRLValidator:
             
             if abs(sfp_equity - socie_ending_equity) > Decimal('0.1'):
                 self._add_error('cross_section', 
-                               f'Equity in statement of financial position ({sfp_equity}) does not match ' 
-                               f'ending equity in statement of changes in equity ({socie_ending_equity})')
+                            f'Equity in statement of financial position ({sfp_equity}) does not match ' 
+                            f'ending equity in statement of changes in equity ({socie_ending_equity})')
         
         # Check cash and cash equivalents from statement of financial position matches statement of cash flows
         if 'statement_of_financial_position' in self.data and 'statement_of_cash_flows' in self.data:
@@ -394,8 +394,8 @@ class ACRAXBRLValidator:
             
             if abs(sfp_cash - scf_ending_cash) > Decimal('0.1'):
                 self._add_error('cross_section', 
-                               f'Cash and cash equivalents in statement of financial position ({sfp_cash}) does not match ' 
-                               f'ending cash in statement of cash flows ({scf_ending_cash})')
+                            f'Cash and cash equivalents in statement of financial position ({sfp_cash}) does not match ' 
+                            f'ending cash in statement of cash flows ({scf_ending_cash})')
     
     def _add_error(self, section: str, message: str) -> None:
         """Add an error message to the specified section"""
