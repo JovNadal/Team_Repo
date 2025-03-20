@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 @api_view(['POST'])
 def validate_mapped_data(request):
+    logger.debug(f"Received data: {request.data}")
     """
     Validate mapped XBRL data against ACRA rules.
     
