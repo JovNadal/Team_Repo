@@ -33,8 +33,16 @@ def validate_mapped_data(request):
         is_valid, errors = validator_service.validate_xbrl_data(data)
         
         # Format response
-        response_data = validator_service.format_validation_response(is_valid, errors)
+        response_data = {
+            "validation_status": "success" if is_valid else "error",
+            "is_valid": is_valid,
+            "validation_timestamp": validator_service.get_current_timestamp(),
+            "taxonomy_version": validator_service.get_taxonomy_version(data)
+        }
         
+        if not is_valid:
+            response_data["validation_errors"] = errors
+            
         return Response(
             response_data,
             status=status.HTTP_200_OK if is_valid else status.HTTP_400_BAD_REQUEST
