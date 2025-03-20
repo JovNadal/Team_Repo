@@ -40,16 +40,19 @@ class BaseXBRLValidator:
         """Validate that all required sections are present"""
         # ACRA requires these sections for all filings
         required_sections = {
-            'filing_information',
-            'statement_of_financial_position',
-            'income_statement'
+            'FilingInformation',
+            'StatementOfFinancialPosition',
+            'IncomeStatement'
         }
         
         # Map for alternative section names
         section_mapping = {
-            'filing_information': ['filing_information', 'FilingInformation'],
-            'statement_of_financial_position': ['statement_of_financial_position', 'StatementOfFinancialPosition'],
-            'income_statement': ['income_statement', 'IncomeStatement']
+            'FilingInformation': ['FilingInformation', 'filing_information'],
+            'StatementOfFinancialPosition': ['StatementOfFinancialPosition', 'statement_of_financial_position'],
+            'IncomeStatement': ['IncomeStatement', 'income_statement'],
+            'DirectorsStatement': ['DirectorsStatement', 'directors_statement'],
+            'AuditReport': ['AuditReport', 'audit_report'],
+            'Notes': ['Notes', 'notes']
         }
         
         # Check for missing sections
@@ -138,16 +141,19 @@ class ACRAXBRLValidator:
         """Validate that all required sections are present"""
         # ACRA requires these sections for all filings
         required_sections = {
-            'filing_information',
-            'statement_of_financial_position',
-            'income_statement'
+            'FilingInformation',
+            'StatementOfFinancialPosition',
+            'IncomeStatement'
         }
         
         # Map for alternative section names
         section_mapping = {
-            'filing_information': ['filing_information', 'FilingInformation'],
-            'statement_of_financial_position': ['statement_of_financial_position', 'StatementOfFinancialPosition'],
-            'income_statement': ['income_statement', 'IncomeStatement']
+            'FilingInformation': ['FilingInformation', 'filing_information'],
+            'StatementOfFinancialPosition': ['StatementOfFinancialPosition', 'statement_of_financial_position'],
+            'IncomeStatement': ['IncomeStatement', 'income_statement'],
+            'DirectorsStatement': ['DirectorsStatement', 'directors_statement'],
+            'AuditReport': ['AuditReport', 'audit_report'],
+            'Notes': ['Notes', 'notes']
         }
         
         # Check for missing sections
@@ -168,16 +174,16 @@ class ACRAXBRLValidator:
     
     def _validate_filing_information(self) -> None:
         """Validate filing information according to ACRA rules"""
-        filing_info = self.data.get('filing_information', {})
+        filing_info = self.data.get('FilingInformation', {})
         
         # Map incoming field names to expected field names
         field_mapping = {
-            'company_name': ['company_name', 'name_of_company', 'NameOfCompany'],
+            'company_name': ['company_name', 'NameOfCompany'],
             'unique_entity_number': ['unique_entity_number', 'UniqueEntityNumber'],
-            'current_period_start': ['current_period_start', 'current_period_start_date', 'CurrentPeriodStartDate'],
-            'current_period_end': ['current_period_end', 'current_period_end_date', 'CurrentPeriodEndDate'],
-            'xbrl_filing_type': ['xbrl_filing_type', 'type_of_xbrl_filing', 'TypeOfXBRLFiling'],
-            'financial_statement_type': ['financial_statement_type', 'nature_of_financial_statements_company_level_or_consolidated', 'NatureOfFinancialStatementsCompanyLevelOrConsolidated']
+            'current_period_start': ['current_period_start', 'CurrentPeriodStartDate'],
+            'current_period_end': ['current_period_end', 'CurrentPeriodEndDate'],
+            'xbrl_filing_type': ['xbrl_filing_type', 'TypeOfXBRLFiling'],
+            'financial_statement_type': ['financial_statement_type', 'NatureOfFinancialStatementsCompanyLevelOrConsolidated']
         }
         
         # Required fields with validation functions
@@ -203,11 +209,11 @@ class ACRAXBRLValidator:
                     break
             
             if not field_found:
-                self._add_error('filing_information', f"Missing required field: {expected_field}")
+                self._add_error('FilingInformation', f"Missing required field: {expected_field}")
             else:
                 result = validator(field_value)
                 if result:
-                    self._add_error('filing_information', f"{expected_field}: {result}")
+                    self._add_error('FilingInformation', f"{expected_field}: {result}")
     
     def _validate_financial_position(self) -> None:
         """Validate statement of financial position according to ACRA rules"""
