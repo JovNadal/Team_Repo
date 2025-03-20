@@ -1,7 +1,7 @@
 from typing import Dict, List, Tuple, Any
 import logging
-from ..validators import ACRAXBRLValidator
-from ..utils import format_validation_errors
+from .validators import ACRAXBRLValidator
+from .utils import format_validation_errors
 
 logger = logging.getLogger(__name__)
 
