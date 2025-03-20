@@ -983,7 +983,7 @@ def bulk_operations(request):
 @api_view(['POST'])
 def map_financial_data(request):
     """
-    Map financial statement data to standard format and store in database
+    Map financial statement data to standard format without storing in database
     """
     try:
         logfire.info("Starting financial data mapping process")
@@ -1027,27 +1027,13 @@ def map_financial_data(request):
         
         logfire.info("Financial data mapping completed successfully")
         
-        # Store mapped data in database
-        try:
-            with transaction.atomic():
-                filing_id = save_to_database(mapped_data_dict)
-                logfire.info(f"Successfully saved data to database with ID: {filing_id}")
-                
-                return success_response(
-                    message="Financial data mapped and stored successfully",
-                    data={
-                        "mapped_data": mapped_data_dict,
-                        "filing_id": str(filing_id)
-                    }
-                )
-                
-        except Exception as db_error:
-            logfire.exception("Error storing mapped data in database", error=str(db_error))
-            return error_response(
-                message="Financial data was mapped but could not be stored in the database",
-                error=str(db_error),
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        # Return success response with mapped data
+        return success_response(
+            message="Financial data mapped successfully",
+            data={
+                "mapped_data": mapped_data_dict
+            }
+        )
             
     except Exception as e:
         # Enhanced error logging with more details

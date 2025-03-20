@@ -1,7 +1,7 @@
 from rest_framework.response import Response
 from rest_framework import status
 
-def success_response(message="Operation completed successfully", data=None, status_code=status.HTTP_200_OK):
+def success_response(message: str, status_code=status.HTTP_200_OK):
     """
     Returns a standardized success response
     """
@@ -10,13 +10,10 @@ def success_response(message="Operation completed successfully", data=None, stat
         "message": message
     }
     
-    if data is not None:
-        response_body["data"] = data
-    
     return Response(response_body, status=status_code)
 
 
-def error_response(message="An error occurred", error=None, status_code=status.HTTP_400_BAD_REQUEST):
+def error_response(message: str, error=None, status_code=status.HTTP_400_BAD_REQUEST):
     """
     Returns a standardized error response
     """
