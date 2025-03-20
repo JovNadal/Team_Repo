@@ -26,4 +26,6 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include(api_patterns)),  # API with versioning
     path("xbrl/", include("xbrl_mapping.urls")),  # Keep original path for backward compatibility
+    path("validate/", include("xbrl_validator.urls")),
+    path("tagging/", include("xbrl_tagging.urls")),
 ]
