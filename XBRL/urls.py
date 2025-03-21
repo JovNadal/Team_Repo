@@ -20,6 +20,7 @@ from django.urls import path, include
 # API versioning
 api_patterns = [
     path("v1/", include("xbrl_mapping.urls")),
+    path("v1/", include("xbrl_validator.urls")),  # Add xbrl_validator URLs
 ]
 
 urlpatterns = [
