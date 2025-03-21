@@ -1023,7 +1023,7 @@ def map_financial_data(request):
         else:
             # Fallback to manual conversion
             mapped_data_dict = {k: v for k, v in result_mapping.data.__dict__.items() 
-                              if not k.startswith('_')}
+                            if not k.startswith('_')}
         
         logfire.info("Financial data mapping completed successfully")
         
@@ -1436,7 +1436,7 @@ def store_mapped_data_to_db(mapped_data_dict):
             # First, convert all PascalCase field names to snake_case using the existing mapping function
             mapped_data_dict = map_pydantic_to_django_fields(mapped_data_dict)
             logfire.debug("Pydantic data mapped to Django field names", 
-                         top_level_keys=list(mapped_data_dict.keys()))
+                        top_level_keys=list(mapped_data_dict.keys()))
             
             # Extract and normalize data sections
             filing_info_data = mapped_data_dict.get('filing_information', {})
@@ -1444,14 +1444,14 @@ def store_mapped_data_to_db(mapped_data_dict):
             # Validate company name and UEN
             if not filing_info_data.get('company_name'):
                 logfire.error("Company name not found in mapped data", 
-                             mapped_data_keys=list(mapped_data_dict.keys()),
-                             filing_info_keys=list(filing_info_data.keys()))
+                            mapped_data_keys=list(mapped_data_dict.keys()),
+                            filing_info_keys=list(filing_info_data.keys()))
                 raise ValueError("Company name is required")
                 
             if not filing_info_data.get('unique_entity_number'):
                 logfire.error("UEN not found in mapped data", 
-                             mapped_data_keys=list(mapped_data_dict.keys()),
-                             filing_info_keys=list(filing_info_data.keys()))
+                            mapped_data_keys=list(mapped_data_dict.keys()),
+                            filing_info_keys=list(filing_info_data.keys()))
                 raise ValueError("Unique Entity Number (UEN) is required")
             
             # Add default values for required fields if not present
@@ -1595,12 +1595,12 @@ def store_mapped_data_to_db(mapped_data_dict):
             
             # Create statement of financial position
             total_assets = financial_position_data.get('total_assets', 
-                                                      current_assets_data.get('total_current_assets', 0) +
-                                                      noncurrent_assets_data.get('total_noncurrent_assets', 0))
+                                                    current_assets_data.get('total_current_assets', 0) +
+                                                    noncurrent_assets_data.get('total_noncurrent_assets', 0))
             
             total_liabilities = financial_position_data.get('total_liabilities',
-                                                          current_liabilities_data.get('total_current_liabilities', 0) +
-                                                          noncurrent_liabilities_data.get('total_noncurrent_liabilities', 0))
+                                                        current_liabilities_data.get('total_current_liabilities', 0) +
+                                                        noncurrent_liabilities_data.get('total_noncurrent_liabilities', 0))
             
             sof_position = StatementOfFinancialPosition.objects.create(
                 filing=filing_info,
