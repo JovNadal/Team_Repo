@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'xbrl_mapping',
+    'xbrl_validator',
     'rest_framework',
     'django_filters',
 ]
