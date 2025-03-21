@@ -25,4 +25,7 @@ urlpatterns = [
     path('validate/', views.validate_xbrl_json, name='xbrl-validate'),
     path('bulk/', views.bulk_operations, name='xbrl-bulk-operations'),
     path('by-uen/<str:uen>/', views.get_xbrl_by_uen, name='xbrl-by-uen'),
+
+    # Mapping endpoints
+    path('map/', views.map_financial_data, name='map_financial_data'),
 ]
