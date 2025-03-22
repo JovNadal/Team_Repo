@@ -178,7 +178,7 @@ class IncomeStatement(models.Model):
     """Income statement information"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE)
-    revenue = models.FloatField()
+    revenue = models.FloatField(null=True, blank=True)
     other_income = models.FloatField(null=True, blank=True)
     employee_expenses = models.FloatField(null=True, blank=True)
     depreciation_expense = models.FloatField(null=True, blank=True)
@@ -247,8 +247,10 @@ class Notes(models.Model):
     )
     revenue = models.OneToOneField(
         Revenue, 
-        on_delete=models.CASCADE, 
-        related_name='notes_revenue'
+        on_delete=models.CASCADE,
+        related_name='notes_revenue',
+        null=True,
+        blank=True
     )
 
 class PartialXBRL(models.Model):

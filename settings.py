@@ -1,6 +1,3 @@
-# Sample structure settings.py
-# Make sure these fields exist in your .env
-
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
