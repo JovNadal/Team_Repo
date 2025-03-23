@@ -16,17 +16,15 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-
-# API versioning
-api_patterns = [
-    path("v1/", include("xbrl_mapping.urls")),
-    path("v1/", include("xbrl_validator.urls")),  # Add xbrl_validator URLs
-]
+from rest_framework_simplejwt.views import (
+    TokenRefreshView
+)
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
-    path("api/", include(api_patterns)),  # API with versioning
-    path("xbrl/", include("xbrl_mapping.urls")),  # Keep original path for backward compatibility
-    path("validate/", include("xbrl_validator.urls")),
-    path("tagging/", include("xbrl_tagging.urls")),
+    path("api/admin/", admin.site.urls),
+    path('api/user/refresh', TokenRefreshView.as_view(), name='token_refresh'),
+
+    path("api/v1/mapping/", include("xbrl_mapping.urls")),
+    path("api/v1/validation/", include("xbrl_validation.urls")),
+    path("api/v1/tagging/", include("xbrl_tagging.urls")),
 ]

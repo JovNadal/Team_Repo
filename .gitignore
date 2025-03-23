@@ -1,60 +1,6 @@
-# Django
-*.log
-*.pot
-*.pyc
-**/__pycache__/
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-media/
-staticfiles/
-
-# Python
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Environment
+.vscode
+.idea
+venv
+postgresql
 .env
-.env.local
-.env.*.local
-.venv
-env/
-venv/
-ENV/
-
-# IDEs
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# Database
-*.sqlite3
-*.sqlite3-journal
-*.db
-
-# Static files
-static/
-media/
-
-# System files
-.DS_Store
-Thumbs.db
+**/__pycache__/
