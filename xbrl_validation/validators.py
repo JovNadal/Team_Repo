@@ -89,13 +89,16 @@ class ACRAXBRLValidator:
                 filing_info = self.data.get(name, {})
                 break
                 
-        version = filing_info.get('TaxonomyVersion', filing_info.get('taxonomy_version'))
+        version = None
+        if filing_info:
+            version = filing_info.get('TaxonomyVersion', filing_info.get('taxonomy_version'))
         
-        valid_versions = {'2016', '2020', '2022', '2022.2'}
+        # Only support 2022 versions
+        valid_versions = {'2022', '2022.2'}
         if version in valid_versions:
             return version
             
-        return '2022.2'  # Default to latest
+        return '2022.2'  # Default to latest 2022 version
         
     def validate(self) -> Tuple[bool, Dict[str, List[str]]]:
         """
@@ -256,7 +259,7 @@ class ACRAXBRLValidator:
             total_current_assets = 0
             total_current_assets_key = next((k for k in ['CurrentAssets', 'current_assets', 'total_current_assets'] 
                                             if k in current_assets), None)
-            if total_current_assets_key:
+            if total_current_assets_key and current_assets.get(total_current_assets_key) is not None:
                 total_current_assets = Decimal(str(current_assets.get(total_current_assets_key, 0)))
         else:
             total_current_assets = 0
@@ -272,7 +275,7 @@ class ACRAXBRLValidator:
             total_noncurrent_assets_key = next((k for k in ['NonCurrentAssets', 'non_current_assets', 'noncurrent_assets', 
                                                           'total_noncurrent_assets', 'total_non_current_assets'] 
                                               if k in noncurrent_assets), None)
-            if total_noncurrent_assets_key:
+            if total_noncurrent_assets_key and noncurrent_assets.get(total_noncurrent_assets_key) is not None:
                 total_noncurrent_assets = Decimal(str(noncurrent_assets.get(total_noncurrent_assets_key, 0)))
         else:
             total_noncurrent_assets = 0
@@ -280,7 +283,7 @@ class ACRAXBRLValidator:
         # Get total assets
         total_assets = 0
         total_assets_key = next((k for k in ['Assets', 'assets', 'total_assets'] if k in financial_position), None)
-        if total_assets_key:
+        if total_assets_key and financial_position.get(total_assets_key) is not None:
             total_assets = Decimal(str(financial_position.get(total_assets_key, 0)))
         
         # Check if totals match (with small tolerance for rounding)
@@ -308,13 +311,10 @@ class ACRAXBRLValidator:
                         f'Total assets ({total_assets}) does not equal the sum of current assets ' 
                            f'({total_current_assets}) and non-current assets ({total_noncurrent_assets})')
         
-        # Similar checks for liabilities and equity
-        # ... (similar checks for liabilities and equity totals)
-        
-        # Check accounting equation: Assets = Liabilities + Equity
+        # Check for liabilities and equity
         total_liabilities = 0
         liabilities_key = next((k for k in ['Liabilities', 'liabilities', 'total_liabilities'] if k in financial_position), None)
-        if liabilities_key:
+        if liabilities_key and financial_position.get(liabilities_key) is not None:
             total_liabilities = Decimal(str(financial_position.get(liabilities_key, 0)))
         
         total_equity = 0
@@ -322,7 +322,7 @@ class ACRAXBRLValidator:
         if equity_key:
             equity = financial_position.get(equity_key, {})
             equity_total_key = next((k for k in ['Equity', 'equity', 'total_equity'] if k in equity), None)
-            if equity_total_key:
+            if equity_total_key and equity.get(equity_total_key) is not None:
                 total_equity = Decimal(str(equity.get(equity_total_key, 0)))
         
         if abs((total_liabilities + total_equity) - total_assets) > rounding_tolerance:
@@ -435,7 +435,7 @@ class ACRAXBRLValidator:
                 receivables_notes = notes.get(receivables_notes_key, {})
                 notes_total_key = next((k for k in ['TradeAndOtherReceivables', 'trade_and_other_receivables'] if k in receivables_notes), None)
                 
-                if notes_total_key:
+                if notes_total_key and receivables_notes.get(notes_total_key) is not None:
                     notes_total = Decimal(str(receivables_notes.get(notes_total_key, 0)))
                     
                     # Find receivables in the statement of financial position
@@ -445,7 +445,8 @@ class ACRAXBRLValidator:
                         receivables_sfp_key = next((k for k in ['TradeAndOtherReceivablesCurrent', 'trade_and_other_receivables_current', 
                                                             'trade_and_other_receivables'] if k in current_assets), None)
                         
-                        if receivables_sfp_key:
+                        # Check if the key exists and the value is not None
+                        if receivables_sfp_key and current_assets.get(receivables_sfp_key) is not None:
                             statement_total = Decimal(str(current_assets.get(receivables_sfp_key, 0)))
                             
                             # Determine rounding tolerance
@@ -470,44 +471,32 @@ class ACRAXBRLValidator:
                                f'Trade and other receivables in notes ({notes_total}) does not match ' 
                                f'the value in statement of financial position ({statement_total})')
     
-        # 2. Revenue consistency between notes and income statement
-        revenue_notes_key = next((k for k in ['Revenue', 'revenue'] if k in notes), None)
-        is_key = next((k for k in ['IncomeStatement', 'income_statement'] if k in self.data), None)
+        # 2. Check for null values in required fields
+        # Trade and Other Payables
+        current_liabilities_key = next((k for k in ['CurrentLiabilities', 'current_liabilities'] 
+                                    if k in financial_position), None)
+        if current_liabilities_key:
+            current_liabilities = financial_position.get(current_liabilities_key, {})
+            payables_key = next((k for k in ['TradeAndOtherPayablesCurrent', 'trade_and_other_payables_current'] 
+                              if k in current_liabilities), None)
+            
+            # If key exists but value is null
+            if payables_key and current_liabilities.get(payables_key) is None:
+                self._add_error('StatementOfFinancialPosition.CurrentLiabilities', 
+                             'TradeAndOtherPayablesCurrent should not be null')
         
-        if revenue_notes_key and is_key:
-            revenue_notes = notes.get(revenue_notes_key, {})
-            income_statement = self.data.get(is_key, {})
+        # Non-current Trade and Other Payables
+        noncurrent_liabilities_key = next((k for k in ['NonCurrentLiabilities', 'non_current_liabilities'] 
+                                       if k in financial_position), None)
+        if noncurrent_liabilities_key:
+            noncurrent_liabilities = financial_position.get(noncurrent_liabilities_key, {})
+            payables_key = next((k for k in ['TradeAndOtherPayablesNoncurrent', 'trade_and_other_payables_noncurrent'] 
+                              if k in noncurrent_liabilities), None)
             
-            notes_total_key = next((k for k in ['Revenue', 'revenue'] if k in revenue_notes), None)
-            is_revenue_key = next((k for k in ['Revenue', 'revenue'] if k in income_statement), None)
-            
-            if notes_total_key and is_revenue_key:
-                notes_total = Decimal(str(revenue_notes.get(notes_total_key, 0)))
-                is_total = Decimal(str(income_statement.get(is_revenue_key, 0)))
-                
-                # Determine rounding tolerance
-                filing_info_key = next((k for k in ['FilingInformation', 'filing_information'] if k in self.data), None)
-                rounding_tolerance = Decimal('0.1')  # Default tolerance
-                
-                if filing_info_key:
-                    filing_info = self.data.get(filing_info_key, {})
-                    rounding_field = next((k for k in ['LevelOfRoundingUsedInFinancialStatements', 
-                                                     'level_of_rounding_used_in_financial_statements'] if k in filing_info), None)
-                    if rounding_field:
-                        rounding = filing_info.get(rounding_field)
-                        if rounding == 'Thousands':
-                            rounding_tolerance = Decimal('1')
-                        elif rounding == 'Millions':
-                            rounding_tolerance = Decimal('0.1') * Decimal('1000')
-                        elif rounding == 'Billions':
-                            rounding_tolerance = Decimal('0.1') * Decimal('1000000')
-                
-                if abs(notes_total - is_total) > rounding_tolerance:
-                    self._add_error('Notes', 
-                                f'Revenue in notes ({notes_total}) does not match ' 
-                                f'revenue in income statement ({is_total})')
-
-        return None
+            # If key exists but value is null
+            if payables_key and noncurrent_liabilities.get(payables_key) is None:
+                self._add_error('StatementOfFinancialPosition.NonCurrentLiabilities', 
+                             'TradeAndOtherPayablesNoncurrent should not be null')
 
     def _validate_directors_statement(self) -> None:
         """Validate directors statement according to ACRA rules"""
@@ -677,7 +666,7 @@ class ACRAXBRLValidator:
                 # Get total assets
                 total_assets = 0
                 total_assets_key = next((k for k in ['Assets', 'assets', 'total_assets'] if k in financial_position), None)
-                if total_assets_key:
+                if total_assets_key and financial_position.get(total_assets_key) is not None:
                     total_assets = Decimal(str(financial_position.get(total_assets_key, 0)))
                 
                 # Get current assets
@@ -687,7 +676,7 @@ class ACRAXBRLValidator:
                     current_assets_section = financial_position.get(current_assets_key, {})
                     total_current_assets_key = next((k for k in ['CurrentAssets', 'current_assets', 'total_current_assets'] 
                                                 if k in current_assets_section), None)
-                    if total_current_assets_key:
+                    if total_current_assets_key and current_assets_section.get(total_current_assets_key) is not None:
                         current_assets = Decimal(str(current_assets_section.get(total_current_assets_key, 0)))
                 
                 # Get non-current assets
@@ -699,7 +688,7 @@ class ACRAXBRLValidator:
                     total_non_current_assets_key = next((k for k in ['NonCurrentAssets', 'NoncurrentAssets', 'non_current_assets', 
                                                                'noncurrent_assets', 'total_non_current_assets', 'total_noncurrent_assets'] 
                                                    if k in non_current_assets_section), None)
-                    if total_non_current_assets_key:
+                    if total_non_current_assets_key and non_current_assets_section.get(total_non_current_assets_key) is not None:
                         non_current_assets = Decimal(str(non_current_assets_section.get(total_non_current_assets_key, 0)))
                 
                 # Determine rounding tolerance
@@ -729,7 +718,7 @@ class ACRAXBRLValidator:
                 # Check accounting equation: Assets = Liabilities + Equity
                 total_liabilities = 0
                 liabilities_key = next((k for k in ['Liabilities', 'liabilities', 'total_liabilities'] if k in financial_position), None)
-                if liabilities_key:
+                if liabilities_key and financial_position.get(liabilities_key) is not None:
                     total_liabilities = Decimal(str(financial_position.get(liabilities_key, 0)))
                 
                 total_equity = 0
@@ -737,9 +726,9 @@ class ACRAXBRLValidator:
                 if equity_key:
                     equity_section = financial_position.get(equity_key, {})
                     equity_total_key = next((k for k in ['Equity', 'equity', 'total_equity'] if k in equity_section), None)
-                    if equity_total_key:
+                    if equity_total_key and equity_section.get(equity_total_key) is not None:
                         total_equity = Decimal(str(equity_section.get(equity_total_key, 0)))
-                    else:
+                    elif equity_section.get('Equity') is not None:
                         total_equity = Decimal(str(equity_section.get('Equity', 0)))
                 
                 if abs((total_liabilities + total_equity) - total_assets) > rounding_tolerance:
