@@ -66,14 +66,14 @@ class FilingInformation(models.Model):
     xbrl_preparation_method = models.CharField(max_length=15, choices=XBRLPreparationMethod.choices)
     
 class DirectorsStatement(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE)
+    
+    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE, primary_key=True)
     directors_opinion_true_fair_view = models.BooleanField(db_column='directors_opinion_true_fair_view')
     reasonable_grounds_company_debts = models.BooleanField(db_column='reasonable_grounds_company_debts')
 
 class AuditReport(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE)
+    
+    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE, primary_key=True)
     audit_opinion = models.CharField(max_length=15, choices=AuditOpinion.choices)
     auditing_standards = models.CharField(max_length=255, null=True, blank=True)
     material_uncertainty_going_concern = models.BooleanField(null=True, blank=True)
@@ -81,8 +81,8 @@ class AuditReport(models.Model):
 
 class CurrentAssets(models.Model):
     """Current assets section"""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE)
+    
+    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE, primary_key=True)
     cash_and_bank_balances = models.FloatField(null=True, blank=True)
     trade_and_other_receivables = models.FloatField(null=True, blank=True)
     current_finance_lease_receivables = models.FloatField(null=True, blank=True)
@@ -101,8 +101,8 @@ class CurrentAssets(models.Model):
 
 class NonCurrentAssets(models.Model):
     """Non-current assets section"""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE)
+    
+    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE, primary_key=True)
     trade_and_other_receivables = models.FloatField(null=True, blank=True)
     noncurrent_finance_lease_receivables = models.FloatField(null=True, blank=True)
     noncurrent_derivative_financial_assets = models.FloatField(null=True, blank=True)
@@ -121,8 +121,8 @@ class NonCurrentAssets(models.Model):
 
 class CurrentLiabilities(models.Model):
     """Current liabilities section"""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE)
+    
+    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE, primary_key=True)
     trade_and_other_payables = models.FloatField(null=True, blank=True)
     current_loans_and_borrowings = models.FloatField(null=True, blank=True)
     current_financial_liabilities_at_fair_value = models.FloatField(
@@ -138,8 +138,8 @@ class CurrentLiabilities(models.Model):
 
 class NonCurrentLiabilities(models.Model):
     """Non-current liabilities section"""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE)
+    
+    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE, primary_key=True)
     trade_and_other_payables = models.FloatField(null=True, blank=True)
     noncurrent_loans_and_borrowings = models.FloatField(null=True, blank=True)
     noncurrent_financial_liabilities_at_fair_value = models.FloatField(
@@ -154,8 +154,8 @@ class NonCurrentLiabilities(models.Model):
 
 class Equity(models.Model):
     """Equity section"""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE)
+    
+    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE, primary_key=True)
     share_capital = models.FloatField()
     treasury_shares = models.FloatField(null=True, blank=True)
     accumulated_profits_losses = models.FloatField()
@@ -164,7 +164,7 @@ class Equity(models.Model):
     total_equity = models.FloatField()
 
 class StatementOfFinancialPosition(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
     filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE)
     current_assets = models.OneToOneField(CurrentAssets, on_delete=models.CASCADE)
     noncurrent_assets = models.OneToOneField(NonCurrentAssets, on_delete=models.CASCADE)
@@ -176,8 +176,8 @@ class StatementOfFinancialPosition(models.Model):
 
 class IncomeStatement(models.Model):
     """Income statement information"""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE)
+    
+    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE, primary_key=True)
     revenue = models.FloatField(null=True, blank=True)
     other_income = models.FloatField(null=True, blank=True)
     employee_expenses = models.FloatField(null=True, blank=True)
@@ -200,8 +200,8 @@ class IncomeStatement(models.Model):
 
 class TradeAndOtherReceivables(models.Model):
     """Trade and other receivables detail"""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    filing = models.ForeignKey(FilingInformation, on_delete=models.CASCADE, related_name='receivables')
+    
+    filing = models.ForeignKey(FilingInformation, on_delete=models.CASCADE, primary_key=True, related_name='receivables')
     receivables_from_third_parties = models.FloatField(null=True, blank=True, help_text="Receivables from third parties. Common terms: third party receivables, external receivables")
     receivables_from_related_parties = models.FloatField(null=True, blank=True, help_text="Receivables from related parties. Common terms: related party receivables, intercompany receivables")
     unbilled_receivables = models.FloatField(null=True, blank=True, help_text="Unbilled receivables. Common terms: contract assets, accrued income, work completed not billed")
@@ -210,8 +210,8 @@ class TradeAndOtherReceivables(models.Model):
 
 class TradeAndOtherPayables(models.Model):
     """Trade and other payables detail"""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE, related_name='payables')
+    
+    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE, primary_key=True, related_name='payables')
     payables_to_third_parties = models.FloatField(null=True, blank=True, help_text="Payables to third parties")
     payables_to_related_parties = models.FloatField(null=True, blank=True, help_text="Payables to related parties")
     deferred_income = models.FloatField(null=True, blank=True, help_text="Deferred income. Common terms: unearned revenue, contract liabilities")
@@ -220,8 +220,8 @@ class TradeAndOtherPayables(models.Model):
 
 class Revenue(models.Model):
     """Revenue details"""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE)
+    
+    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE, primary_key=True)
     revenue_from_property_point_in_time = models.FloatField(null=True, blank=True)
     revenue_from_goods_point_in_time = models.FloatField(null=True, blank=True)
     revenue_from_services_point_in_time = models.FloatField(null=True, blank=True)
@@ -233,8 +233,8 @@ class Revenue(models.Model):
 
 class Notes(models.Model):
     """Notes to financial statements"""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE)
+    
+    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE, primary_key=True)
     trade_and_other_receivables = models.OneToOneField(
         TradeAndOtherReceivables, 
         on_delete=models.CASCADE, 
