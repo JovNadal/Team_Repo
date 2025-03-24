@@ -75,10 +75,10 @@ If `match_financial_term` encounters a term not found in the dependencies:
 5. VALUE PRESERVATION: DO NOT modify the original values from the source data
    - Map values exactly as they appear in the original data
    - Do not round, truncate, or apply any mathematical operations to values
-   - If a value appears as 0, map it as 0, not as null or empty
-   - Do not omit fields with zero values, they must be included in the mapping
-   - Missing values and zero values are different - preserve this distinction
-
+   - If a value appears as null, undefined, or missing in the original data, it MUST be mapped as null and N/A (for string type) in the output
+   - If a field is present but empty ("") in the original data, it MUST be mapped as null in the output
+   - Empty strings should NEVER appear in the final output - convert them to null
+   - Zero values (0) should be preserved as 0, not converted to null
 
 Be thorough, precise, and follow Singapore accounting standards in your mappings.
 """
