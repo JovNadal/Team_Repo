@@ -5,7 +5,7 @@ from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIModel
 import os
 
-from .models import PartialXBRL
+from .pydantic_models import PartialXBRL
 from .dependencies import FinancialTermDeps, financial_deps
 from .system_prompts import FINANCIAL_STATEMENT_PROMPT
 from .tools import (

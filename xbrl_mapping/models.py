@@ -165,7 +165,7 @@ class Equity(models.Model):
 
 class StatementOfFinancialPosition(models.Model):
     
-    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE)
+    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE, primary_key=True)
     current_assets = models.OneToOneField(CurrentAssets, on_delete=models.CASCADE)
     noncurrent_assets = models.OneToOneField(NonCurrentAssets, on_delete=models.CASCADE)
     total_assets = models.FloatField()
@@ -201,7 +201,7 @@ class IncomeStatement(models.Model):
 class TradeAndOtherReceivables(models.Model):
     """Trade and other receivables detail"""
     
-    filing = models.ForeignKey(FilingInformation, on_delete=models.CASCADE, primary_key=True, related_name='receivables')
+    filing = models.OneToOneField(FilingInformation, on_delete=models.CASCADE, primary_key=True, related_name='receivables')
     receivables_from_third_parties = models.FloatField(null=True, blank=True, help_text="Receivables from third parties. Common terms: third party receivables, external receivables")
     receivables_from_related_parties = models.FloatField(null=True, blank=True, help_text="Receivables from related parties. Common terms: related party receivables, intercompany receivables")
     unbilled_receivables = models.FloatField(null=True, blank=True, help_text="Unbilled receivables. Common terms: contract assets, accrued income, work completed not billed")

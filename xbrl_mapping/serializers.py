@@ -291,3 +291,15 @@ class PartialXBRLSerializer(serializers.ModelSerializer):
         instance.save()
         
         return instance
+    
+class SimpleXBRLSerializer(serializers.ModelSerializer):
+    """Serializer for simplified XBRL data"""
+    class Meta:
+        model = PartialXBRL
+        fields = ['filing_information', 'statement_of_financial_position', 'income_statement']
+
+class FullXBRLSerializer(serializers.ModelSerializer):
+    """Serializer for full XBRL data"""
+    class Meta:
+        model = PartialXBRL
+        fields = '__all__'
