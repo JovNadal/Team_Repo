@@ -351,93 +351,60 @@ class XBRLWorkflowOrchestrator:
         from ...models import PartialXBRL
         from django.db import transaction
         
-        task_id = str(uuid.uuid4())
-        
         try:
-            logfire.info(f"Starting financial data manual update for ID: {id}, task_id: {task_id}")
+            logfire.info(f"Starting financial data manual update for ID: {id}")
             
             # Check if the XBRL filing exists using UUID
             try:
-                xbrl = PartialXBRL.objects.get(id=id)
-                # Store the UEN for later use in responses
-                uen = xbrl.filing_information.unique_entity_number
+                with transaction.atomic():
+                    # Use select_for_update to prevent concurrent modifications
+                    xbrl = PartialXBRL.objects.select_for_update().get(id=id)
+                    uen = xbrl.filing_information.unique_entity_number
+                    
+                    if not mapped_data:
+                        return WorkflowResult(
+                            success=False,
+                            task_id=None,  # No task ID needed for sync operations
+                            message="Missing mapped data in request",
+                            status_code=400
+                        )
+                    
+                    # Import inside the function to avoid circular imports
+                    from ..processors.update import process_update_data
+                    
+                    # Process the update within the transaction
+                    update_result = process_update_data(xbrl, mapped_data)
+                    
+                    if not update_result['success']:
+                        return WorkflowResult(
+                            success=False,
+                            task_id=None,
+                            message=update_result['message'],
+                            error=update_result['error'],
+                            status_code=400
+                        )
+                    
+                    # Return success response with the updated filing data
+                    return WorkflowResult(
+                        success=True,
+                        task_id=None,
+                        message=f"Financial data for UEN {uen} updated successfully",
+                        data={
+                            "filing_id": str(id),
+                            "mapped_data": mapped_data
+                        },
+                        status_code=200
+                    )
+                    
             except PartialXBRL.DoesNotExist:
                 return WorkflowResult(
                     success=False,
-                    task_id=task_id,
+                    task_id=None,
                     message=f"No XBRL filing found with ID: {id}",
                     status_code=404
                 )
-            
-            if not mapped_data:
-                return WorkflowResult(
-                    success=False,
-                    task_id=task_id,
-                    message="Missing mapped data in request",
-                    status_code=400
-                )
-            
-            # Process the manually mapped data
-            try:
-                from ..processors.update import process_update_data
-                
-                # Process the update
-                update_result = process_update_data(xbrl, mapped_data)
-                
-                if not update_result['success']:
-                    return WorkflowResult(
-                        success=False,
-                        task_id=task_id,
-                        message=update_result['message'],
-                        error=update_result['error'],
-                        status_code=400
-                    )
-                
-                # Create a task status record for this update
-                TaskStatus.objects.create(
-                    id=uuid.UUID(task_id),
-                    status=TaskStatus.COMPLETED,
-                    result_id=uuid.UUID(id),
-                    additional_data={
-                        "filing_id": id,
-                        "uen": uen,
-                        "operation": "update"
-                    }
-                )
-                
-                return WorkflowResult(
-                    success=True,
-                    task_id=task_id,
-                    message=f"Financial data for UEN {uen} updated successfully",
-                    data={
-                        "filing_id": id,
-                        "task_id": task_id,
-                        "mapped_data": mapped_data
-                    },
-                    status_code=200
-                )
-                
-            except Exception as db_error:
-                logfire.exception("Error updating financial data in database", error=str(db_error))
-                
-                # Create a failed task status
-                TaskStatus.objects.create(
-                    id=uuid.UUID(task_id),
-                    status=TaskStatus.FAILED,
-                    error_message=str(db_error)
-                )
-                
-                return WorkflowResult(
-                    success=False,
-                    task_id=task_id,
-                    message=f"Financial data could not be updated in the database for ID: {id}",
-                    error=str(db_error),
-                    data={"mapped_data": mapped_data},
-                    status_code=500
-                )
-                
+                    
         except Exception as e:
-            # Enhanced error logging with more details
             error_type = type(e).__name__
             error_details = str(e)
             
@@ -447,19 +414,9 @@ class XBRLWorkflowOrchestrator:
                 error_type=error_type
             )
             
-            # Try to create a failed task status
-            try:
-                TaskStatus.objects.create(
-                    id=uuid.UUID(task_id),
-                    status=TaskStatus.FAILED,
-                    error_message=error_details
-                )
-            except Exception:
-                pass  # Ignore errors in error handling
-            
             return WorkflowResult(
                 success=False,
-                task_id=task_id,
+                task_id=None,
                 message=f"Failed to update financial data for ID: {id}",
                 error=error_details,
                 status_code=500
