@@ -262,3 +262,28 @@ class PartialXBRL(models.Model):
     statement_of_financial_position = models.OneToOneField(StatementOfFinancialPosition, on_delete=models.CASCADE)
     income_statement = models.OneToOneField(IncomeStatement, on_delete=models.CASCADE)
     notes = models.OneToOneField(Notes, on_delete=models.CASCADE)
+
+class TaskStatus(models.Model):
+    """Tracks the status of background processing tasks"""
+    PENDING = 'pending'
+    PROCESSING = 'processing'
+    COMPLETED = 'completed'
+    FAILED = 'failed'
+    
+    STATUS_CHOICES = [
+        (PENDING, 'Pending'),
+        (PROCESSING, 'Processing'),
+        (COMPLETED, 'Completed'),
+        (FAILED, 'Failed'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    result_id = models.UUIDField(null=True, blank=True)  # ID of the resulting XBRL filing
+    error_message = models.TextField(null=True, blank=True)
+    additional_data = models.JSONField(null=True, blank=True)  # For any other data to store
+    
+    def __str__(self):
+        return f"Task {self.id} - {self.status}"

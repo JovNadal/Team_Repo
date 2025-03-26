@@ -508,3 +508,44 @@ def update_mapped_data(request, id):
             error=error_details,
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+@api_view(['GET'])
+def check_task_status(request, task_id):
+    """
+    Check the status of a financial data mapping task
+    """
+    from .services.processors.workflow import XBRLWorkflowOrchestrator
+    
+    try:
+        # Create orchestrator and check task status
+        orchestrator = XBRLWorkflowOrchestrator()
+        result = orchestrator.get_task_status(task_id)
+        
+        if result.success:
+            return success_response(
+                message=result.message,
+                data=result.data,
+                status_code=result.status_code
+            )
+        else:
+            return error_response(
+                message=result.message,
+                error=result.error,
+                status_code=result.status_code
+            )
+            
+    except Exception as e:
+        error_type = type(e).__name__
+        error_details = str(e)
+        
+        logfire.exception(
+            f"Error checking task status for ID: {task_id}", 
+            error=error_details,
+            error_type=error_type
+        )
+        
+        return error_response(
+            message=f"Failed to check task status for ID: {task_id}",
+            error=error_details,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
