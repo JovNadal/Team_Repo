@@ -1,8 +1,8 @@
 import json
 import uuid
 import logfire
-from ..agent import financial_statement_agent
-from ..dependencies import financial_deps
+from ..ai.agent import financial_statement_agent
+from ..ai.dependencies import financial_deps
 from .storage import map_pydantic_to_django_fields, store_mapped_data_to_db
 
 class XBRLProcessor:

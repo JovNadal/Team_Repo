@@ -13,8 +13,8 @@ from threading import Thread
 
 from .services.validators.mapping_validator import XBRLValidator
 # Import the mapping agent and dependencies
-from .services.agent import financial_statement_agent
-from .services.dependencies import financial_deps
+from .services.ai.agent import financial_statement_agent
+from .services.ai.dependencies import financial_deps
 from .services.processors.mapping import XBRLFullProcessor, XBRLSimpleProcessor
 from .services.processors.storage import map_pydantic_to_django_fields, store_mapped_data_to_db
 
@@ -329,6 +329,8 @@ class SimpleXBRLView(generics.CreateAPIView):
     serializer_class = SimpleXBRLSerializer
     
     def create(self, request, *args, **kwargs):
+        from .services.processors.workflow import XBRLWorkflowOrchestrator
+        
         serializer = self.get_serializer(data=request.data)
         if not serializer.is_valid():
             return error_response(
@@ -337,24 +339,22 @@ class SimpleXBRLView(generics.CreateAPIView):
                 status_code=status.HTTP_400_BAD_REQUEST
             )
 
-        validator = XBRLValidator()
-        validation_result = validator.validate(serializer.validated_data)
-
-        if not validation_result.is_valid:
-            return error_response(
-                message="Financial data validation failed",
-                error=validation_result.errors,
-                status_code=status.HTTP_400_BAD_REQUEST
+        # Use the orchestrator to process the request
+        orchestrator = XBRLWorkflowOrchestrator()
+        result = orchestrator.process_financial_data(serializer.validated_data, use_fast_response=True)
+        
+        if result.success:
+            return success_response(
+                message=result.message,
+                data=result.data,
+                status_code=result.status_code
             )
-
-        processor = XBRLSimpleProcessor()
-        task_id = processor.process_async(serializer.validated_data)
-
-        return success_response(
-            message="Request processed successfully",
-            data={"task_id": task_id},
-            status_code=status.HTTP_202_ACCEPTED
-        )
+        else:
+            return error_response(
+                message=result.message,
+                error=result.error,
+                status_code=result.status_code
+            )
 
 # Search and Utility Views
 class XBRLSearchView(generics.ListAPIView):
@@ -402,271 +402,93 @@ class XBRLSearchView(generics.ListAPIView):
             }
         )
 
+@api_view(['POST'])
+def map_financial_data(request):
+    """
+    Map financial statement data to standard format and store in database.
+    
+    Uses Fast Response Pattern:
+    1. Validates request data
+    2. Returns immediate response with task ID
+    3. Processes data asynchronously in background
+    """
+    from .services.processors.workflow import XBRLWorkflowOrchestrator
+    
+    try:
+        logfire.info("Starting financial data mapping request")
+        
+        # Extract data from request
+        data = request.data.get('data', {})
+        
+        if not data:
+            return error_response(
+                message="No financial data provided for mapping",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create orchestrator and process request
+        orchestrator = XBRLWorkflowOrchestrator()
+        result = orchestrator.process_financial_data(data, use_fast_response=True)
+        
+        if result.success:
+            return success_response(
+                message=result.message,
+                data=result.data,
+                status_code=result.status_code
+            )
+        else:
+            return error_response(
+                message=result.message,
+                error=result.error,
+                status_code=result.status_code
+            )
+            
+    except Exception as e:
+        # Error handling for request acceptance phase
+        error_type = type(e).__name__
+        error_details = str(e)
+        
+        logfire.exception(
+            "Error accepting financial data mapping request", 
+            error=error_details,
+            error_type=error_type
+        )
+        
+        return error_response(
+            message="Failed to accept financial data mapping request",
+            error=error_details,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 @api_view(['PUT'])
 def update_mapped_data(request, id):
     """
     Update an existing financial statement mapping in the database using UUID
     """
+    from .services.processors.workflow import XBRLWorkflowOrchestrator
+    
     try:
         logfire.info(f"Starting financial data manual update for ID: {id}")
         
-        # Check if the XBRL filing exists using UUID
-        try:
-            xbrl = PartialXBRL.objects.get(id=id)
-            # Store the UEN for later use in responses
-            uen = xbrl.filing_information.unique_entity_number
-        except PartialXBRL.DoesNotExist:
-            return error_response(
-                message=f"No XBRL filing found with ID: {id}",
-                status_code=status.HTTP_404_NOT_FOUND
-            )
-        
-        # Extract mapped data directly from request - assuming user has already mapped it
+        # Extract mapped data directly from request
         mapped_data = request.data.get('mapped_data', {})
         
-        if not mapped_data:
-            return error_response(
-                message="Missing mapped_data in request",
-                status_code=status.HTTP_400_BAD_REQUEST
+        # Create orchestrator and process update
+        orchestrator = XBRLWorkflowOrchestrator()
+        result = orchestrator.update_mapped_data(id, mapped_data)
+        
+        if result.success:
+            return success_response(
+                message=result.message,
+                data=result.data,
+                status_code=result.status_code
             )
-        
-        logfire.debug("Manual update data received", data_size=len(json.dumps(mapped_data)))
-        
-        # Process the manually mapped data to ensure it's in Django format
-        try:
-            # If data is still in PascalCase, convert it to snake_case
-            if any(key for key in mapped_data.keys() if key[0].isupper()):
-                mapped_data = map_pydantic_to_django_fields(mapped_data)
-            
-            if 'filing_information' not in mapped_data:
-                mapped_data['filing_information'] = {}
-            
-            # Preserve the UEN to ensure we're updating the same record
-            mapped_data['filing_information']['unique_entity_number'] = uen
-            
-            # Validate that no ID fields are being modified - this is a security measure
-            forbidden_fields = []
-            
-            # Check filing_information
-            if 'filing_information' in mapped_data:
-                filing_info = xbrl.filing_information
-                for field in mapped_data['filing_information']:
-                    if field == 'id' or field.endswith('_id'):
-                        # Only add to forbidden fields if the value is actually changing
-                        current_value = getattr(filing_info, field, None)
-                        new_value = mapped_data['filing_information'][field]
-                        if str(current_value) != str(new_value):
-                            forbidden_fields.append(f"filing_information.{field}")
-            
-            # Check other top-level sections
-            for section in ['directors_statement', 'audit_report', 'statement_of_financial_position', 
-                           'income_statement', 'notes']:
-                if section in mapped_data:
-                    # Get the current section object
-                    section_obj = getattr(xbrl, section, None)
-                    if not section_obj:
-                        continue
-                        
-                    # Check for ID fields at section level
-                    for field in mapped_data[section]:
-                        if field == 'id' or field == 'filing' or field.endswith('_id'):
-                            # Only add to forbidden fields if the value is actually changing
-                            current_value = getattr(section_obj, field, None)
-                            new_value = mapped_data[section][field]
-                            if str(current_value) != str(new_value):
-                                forbidden_fields.append(f"{section}.{field}")
-                    
-                    # Check nested components in statement_of_financial_position
-                    if section == 'statement_of_financial_position':
-                        for component in ['current_assets', 'noncurrent_assets', 'current_liabilities', 
-                                         'noncurrent_liabilities', 'equity']:
-                            if component in mapped_data[section]:
-                                component_obj = getattr(section_obj, component, None)
-                                if not component_obj:
-                                    continue
-                                
-                                for field in mapped_data[section][component]:
-                                    if field == 'id' or field == 'filing' or field.endswith('_id'):
-                                        # Only add to forbidden fields if the value is actually changing
-                                        current_value = getattr(component_obj, field, None)
-                                        new_value = mapped_data[section][component][field]
-                                        if str(current_value) != str(new_value):
-                                            forbidden_fields.append(f"{section}.{component}.{field}")
-                    
-                    # Check nested components in notes
-                    if section == 'notes':
-                        for component in ['trade_and_other_receivables', 'trade_and_other_payables', 'revenue']:
-                            if component in mapped_data[section]:
-                                component_obj = getattr(section_obj, component, None)
-                                if not component_obj:
-                                    continue
-                                    
-                                for field in mapped_data[section][component]:
-                                    if field == 'id' or field == 'filing' or field.endswith('_id'):
-                                        # Only add to forbidden fields if the value is actually changing
-                                        current_value = getattr(component_obj, field, None)
-                                        new_value = mapped_data[section][component][field]
-                                        if str(current_value) != str(new_value):
-                                            forbidden_fields.append(f"{section}.{component}.{field}")
-            
-            # If any forbidden fields were found, return an error
-            if forbidden_fields:
-                return error_response(
-                    message="Modification of ID or relationship fields is not allowed",
-                    error=f"The following fields cannot be modified: {', '.join(forbidden_fields)}",
-                    status_code=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Handle the transaction to avoid constraint violations
-            with transaction.atomic():
-                # Store old ID for reference
-                old_id = xbrl.id
-                
-                # Get filing information ID before updating
-                filing_info_id = xbrl.filing_information.id
-                
-                # Instead of deleting and recreating, update the existing models
-                # First, update filing information
-                filing_info_data = mapped_data.get('filing_information', {})
-                filing_info = FilingInformation.objects.get(id=filing_info_id)
-                
-                # Update filing info fields - FORBID id and _id fields
-                for field, value in filing_info_data.items():
-                    if (hasattr(filing_info, field) and 
-                        field != 'id' and 
-                        not field.endswith('_id')):
-                        setattr(filing_info, field, value)
-                filing_info.save()
-                
-                # Update directors statement
-                if 'directors_statement' in mapped_data and xbrl.directors_statement:
-                    dirs_stmt_data = mapped_data.get('directors_statement', {})
-                    dirs_stmt = xbrl.directors_statement
-                    for field, value in dirs_stmt_data.items():
-                        # FORBID id, filing and _id fields
-                        if (hasattr(dirs_stmt, field) and 
-                            field != 'filing' and 
-                            field != 'id' and 
-                            not field.endswith('_id')):
-                            setattr(dirs_stmt, field, value)
-                    dirs_stmt.save()
-                
-                # Update audit report
-                if 'audit_report' in mapped_data and xbrl.audit_report:
-                    audit_data = mapped_data.get('audit_report', {})
-                    audit = xbrl.audit_report
-                    for field, value in audit_data.items():
-                        # FORBID id, filing and _id fields
-                        if (hasattr(audit, field) and 
-                            field != 'filing' and 
-                            field != 'id' and 
-                            not field.endswith('_id')):
-                            setattr(audit, field, value)
-                    audit.save()
-                
-                # Update financial position data
-                if 'statement_of_financial_position' in mapped_data and xbrl.statement_of_financial_position:
-                    position_data = mapped_data.get('statement_of_financial_position', {})
-                    position = xbrl.statement_of_financial_position
-                    
-                    # Update top-level fields (confirm these aren't ID fields)
-                    for field in ['total_assets', 'total_liabilities']:
-                        if field in position_data and not field.endswith('_id'):
-                            setattr(position, field, position_data[field])
-                    
-                    # Update nested components
-                    for component in ['current_assets', 'noncurrent_assets', 'current_liabilities', 
-                                     'noncurrent_liabilities', 'equity']:
-                        if component in position_data and hasattr(position, component):
-                            component_obj = getattr(position, component)
-                            component_data = position_data[component]
-                            for field, value in component_data.items():
-                                # FORBID id, filing and _id fields
-                                if (hasattr(component_obj, field) and 
-                                    field != 'filing' and 
-                                    field != 'id' and 
-                                    not field.endswith('_id')):
-                                    setattr(component_obj, field, value)
-                            component_obj.save()
-                    
-                    position.save()
-                
-                # Update income statement
-                if 'income_statement' in mapped_data and xbrl.income_statement:
-                    income_data = mapped_data.get('income_statement', {})
-                    income = xbrl.income_statement
-                    for field, value in income_data.items():
-                        # FORBID id, filing and _id fields
-                        if (hasattr(income, field) and 
-                            field != 'filing' and 
-                            field != 'id' and 
-                            not field.endswith('_id')):
-                            setattr(income, field, value)
-                    income.save()
-                
-                # Update notes
-                if 'notes' in mapped_data and xbrl.notes:
-                    notes_data = mapped_data.get('notes', {})
-                    notes = xbrl.notes
-                    
-                    # Update trade_and_other_receivables
-                    if 'trade_and_other_receivables' in notes_data and notes.trade_and_other_receivables:
-                        receivables_data = notes_data['trade_and_other_receivables']
-                        receivables = notes.trade_and_other_receivables
-                        for field, value in receivables_data.items():
-                            # FORBID id, filing and _id fields
-                            if (hasattr(receivables, field) and 
-                                field != 'filing' and 
-                                field != 'id' and 
-                                not field.endswith('_id')):
-                                setattr(receivables, field, value)
-                        receivables.save()
-                    
-                    # Update trade_and_other_payables
-                    if 'trade_and_other_payables' in notes_data and notes.trade_and_other_payables:
-                        payables_data = notes_data['trade_and_other_payables']
-                        payables = notes.trade_and_other_payables
-                        for field, value in payables_data.items():
-                            # FORBID id, filing and _id fields
-                            if (hasattr(payables, field) and 
-                                field != 'filing' and 
-                                field != 'id' and 
-                                not field.endswith('_id')):
-                                setattr(payables, field, value)
-                        payables.save()
-                    
-                    # Update revenue data if it exists
-                    if 'revenue' in notes_data and hasattr(notes, 'revenue') and notes.revenue:
-                        revenue_data = notes_data['revenue']
-                        revenue = notes.revenue
-                        for field, value in revenue_data.items():
-                            # FORBID id, filing and _id fields
-                            if (hasattr(revenue, field) and 
-                                field != 'filing' and 
-                                field != 'id' and 
-                                not field.endswith('_id')):
-                                setattr(revenue, field, value)
-                        revenue.save()
-                
-                logfire.info(f"Successfully updated financial data in database. ID: {xbrl.id}")
-                
-                # Return success response
-                return success_response(
-                    message=f"Financial data for UEN {uen} updated successfully",
-                    data={
-                        "filing_id": str(xbrl.id),
-                        "mapped_data": mapped_data
-                    }
-                )
-        except Exception as db_error:
-            logfire.exception("Error updating financial data in database", error=str(db_error))
-            # Return the mapped data even if update failed
+        else:
             return error_response(
-                message=f"Financial data could not be updated in the database for ID: {id}",
-                error=str(db_error),
-                data={"mapped_data": mapped_data},
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+                message=result.message,
+                error=result.error,
+                data=result.data if result.data else None,
+                status_code=result.status_code
             )
             
     except Exception as e:
@@ -686,123 +508,3 @@ def update_mapped_data(request, id):
             error=error_details,
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-
-@api_view(['POST'])
-def map_financial_data(request):
-    """
-    Map financial statement data to standard format and store in database.
-    
-    Uses Fast Response Pattern:
-    1. Validates request data
-    2. Returns immediate response with task ID
-    3. Processes data asynchronously in background
-    """
-    try:
-        logfire.info("Starting financial data mapping request")
-        
-        # Extract data from request
-        data = request.data.get('data', {})
-        
-        if not data:
-            return error_response(
-                message="No financial data provided for mapping",
-                status_code=status.HTTP_400_BAD_REQUEST
-            )
-            
-        # Generate a task ID for tracking
-        task_id = str(uuid.uuid4())
-        
-        # Basic validation can be done before response
-        validator = XBRLValidator()
-        validation_result = validator.validate(data)
-        
-        if not validation_result.is_valid:
-            logfire.warning(f"Validation failed for financial data", task_id=task_id)
-            return error_response(
-                message="Financial data validation failed",
-                error=validation_result.errors,
-                status_code=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Send immediate response with task ID
-        logfire.info(f"Sending immediate response with task_id: {task_id}")
-        response = success_response(
-            message="Financial data mapping request accepted for processing",
-            data={
-                "status": "processing",
-                "task_id": task_id
-            },
-            status_code=status.HTTP_202_ACCEPTED
-        )
-        
-        # Start background processing thread
-        Thread(
-            target=process_xbrl_data_after_response,
-            args=(data, task_id),
-            daemon=True
-        ).start()
-        return response
-            
-    except Exception as e:
-        # Error handling for request acceptance phase
-        error_type = type(e).__name__
-        error_details = str(e)
-        
-        logfire.exception(
-            "Error accepting financial data mapping request", 
-            error=error_details,
-            error_type=error_type
-        )
-        
-        return error_response(
-            message="Failed to accept financial data mapping request",
-            error=error_details,
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-def process_xbrl_data_after_response(data, task_id):
-    """
-    Process XBRL data after response has been sent.
-    
-    Args:
-        data (dict): The financial data to process
-        task_id (str): The task identifier for tracking
-    """
-    # Import here to avoid potential circular imports
-    from django.db import close_old_connections
-    from django.db import connection
-    
-    try:
-        # Close any DB connections from the request cycle
-        close_old_connections()
-        
-        logfire.info(f"Background processing started for task_id: {task_id}")
-        
-        # Use the service layer processor
-        processor = XBRLSimpleProcessor()
-        
-        # Process the data - this will handle mapping and storage
-        result = processor.process_sync(data)
-        
-        # Store the result with the task ID for later retrieval if needed
-        # This could be in Redis, database, or another store
-        # For now, just log the result
-        logfire.info(f"Financial data mapping completed for task_id: {task_id}",
-                    success=result.get('success', False),
-                    filing_id=result.get('filing_id', None))
-        
-    except Exception as e:
-        # Error handling for background processing
-        error_type = type(e).__name__
-        error_details = str(e)
-        
-        logfire.exception(
-            f"Error during background processing for task_id: {task_id}", 
-            error=error_details,
-            error_type=error_type
-        )
-    finally:
-        # Always close connections when thread is done
-        close_old_connections()
-        if connection.connection:
-            connection.close()
