@@ -15,4 +15,6 @@ urlpatterns = [
     # Mapping endpoints
     path('map/', views.map_financial_data, name='map_financial_data'),
     path('update/<uuid:id>/', views.update_mapped_data, name='update-mapped-data'),
+
+    path('status/<str:task_id>/', views.check_task_status, name='check-task-status'),
 ]
